@@ -1,60 +1,66 @@
-#-ESPv1.0-- 高级ESP脚本 v2.2 - 优化显示布局和追踪线
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
+--高级ESP脚本v2.3-优化版(监测范围1000单位)
+本地玩家=游戏：GetService(“玩家”)
+本地RunService=game:GetService("RunService")
+本地LocalPlayer=players.LocalPlayer
 
 -- ===== 配置区域 =====
-local SETTINGS = {
-    -- 敌人设置
-    ENEMY_TAGS = {"Rake", "Monster", "Enemy"},
-    ENEMY_COLOR = Color3.fromRGB(255, 50, 50),
+本地设置={
+-- 敌人设置
+敌人_TAGS={"耙"，"怪物"，"敌人"}，
+f25Demy_COLOR=Color3.fromRGB(255，50，50)，
     
     -- 玩家设置
-    PLAYER_COLOR = Color3.fromRGB(50, 150, 255),
-    TEAM_COLOR = Color3.fromRGB(50, 255, 100),
+    player_COLOR=Color3.fromRGB(50，150，255)，
+    team_COLOR=Color3.来自RGB(50，255，100)，
     
     -- 显示设置
-    SHOW_HEALTH = true,
-    SHOW_DISTANCE = true,
-    SHOW_TRACER = true,
-    TRACER_COLOR = Color3.fromRGB(0, 150, 255),
-    TRACER_THICKNESS = 0.1,
+    show_HEALTH=true，
+    show_DISTANCE=true，
+    show_TRACER=true，
+    tracer_COLOR=Color3.fromRGB(0，150，255)，
+    从RGB(255，50，50)，
+    tracer_THICNESS=0.1，
     
     -- 高级设置
-    MAX_DISTANCE = 500,
-    HEALTH_TEXT_SIZE = 16,
-    DISTANCE_TEXT_SIZE = 14,
-    NAME_TEXT_SIZE = 18,
-    UPDATE_RATE = 0.1
+    Max_DISTANCE=1000，--已修改为1000单位
+    health_TEXT_SIZE=16，
+    distance_TEXT_SIZE=14，
+    name_TEXT_SIZE=18，
+    update_RATE=0.1，
+    
+    -- 新增设置
+    scan_INTERVAL=5，
+    tracer_FOR_ENEMIES=true
 }
 
 -- ===== 核心功能 =====
-local espCache = {}
+本地espCache={}
+本地lastScanTime=0
 
-local function createESP(target)
-    if not target:FindFirstChild("HumanoidRootPart") then return end
+本地函数createESP(目标)
+如果不是目标或不是目标：FindFirstChild("HumanoidRootPart")，则返回end
     
-    -- 确定目标类型和颜色
-    local isEnemy = false
-    local isTeammate = false
-    local espColor = SETTINGS.PLAYER_COLOR
+    如果espCache[target]，则返回end
     
-    for _, tag in ipairs(SETTINGS.ENEMY_TAGS) do
-        if target.Name:find(tag) or target:FindFirstChild(tag) then
-            isEnemy = true
-            espColor = SETTINGS.ENEMY_COLOR
-            break
+    本地isEnemy=false
+    本地isTeamate=false
+    局部espColor=SETTINGS.PAYER_COLOR
+    
+    对于_，在ipairs中的标记(SETTINGS.ENEMY_TAGS)
+    如果target.name：查找(标记)或目标：FindFirstChild(标记)，则
+    isEnemy=true
+    espColor=SETTINGS.ENEMY_COLOR
+    打破
+    结束
+    结束
+    
+    如果不是敌人和目标：FindFirstChild(“团队”)，则
+    如果是LocalPlayer。团队和目标。团队==LocalPlayer。然后组队
+    isTeamate=true
+    espColor=SETTINGS.TEAM_COLOR
         end
     end
     
-    if not isEnemy and target:FindFirstChild("Team") then
-        if LocalPlayer.Team and target.Team == LocalPlayer.Team then
-            isTeammate = true
-            espColor = SETTINGS.TEAM_COLOR
-        end
-    end
-    
-    -- 创建高亮效果
     local highlight = Instance.new("Highlight")
     highlight.Name = "AdvancedESP_Highlight"
     highlight.FillColor = espColor
@@ -63,16 +69,14 @@ local function createESP(target)
     highlight.OutlineTransparency = 0
     highlight.Parent = target
     
-    -- 创建信息板 (调整为垂直布局)
     local billboard = Instance.new("BillboardGui")
     billboard.Name = "AdvancedESP_Billboard"
     billboard.Adornee = target.HumanoidRootPart
-    billboard.Size = UDim2.new(0, 150, 0, 60)  -- 调整为更高以适应新布局
+    billboard.Size = UDim2.new(0, 150, 0, 60)
     billboard.StudsOffset = Vector3.new(0, 3.5, 0)
     billboard.AlwaysOnTop = true
     billboard.Parent = target
     
-    -- 创建距离显示 (顶部)
     local distanceText = Instance.new("TextLabel")
     distanceText.Name = "ESP_Distance"
     distanceText.Size = UDim2.new(1, 0, 0.3, 0)
@@ -86,7 +90,6 @@ local function createESP(target)
     distanceText.TextXAlignment = Enum.TextXAlignment.Center
     distanceText.Parent = billboard
     
-    -- 创建血量显示 (中部)
     local healthText = Instance.new("TextLabel")
     healthText.Name = "ESP_Health"
     healthText.Size = UDim2.new(1, 0, 0.4, 0)
@@ -100,7 +103,6 @@ local function createESP(target)
     healthText.TextXAlignment = Enum.TextXAlignment.Center
     healthText.Parent = billboard
     
-    -- 创建名字显示 (底部)
     local nameText = Instance.new("TextLabel")
     nameText.Name = "ESP_Name"
     nameText.Size = UDim2.new(1, 0, 0.3, 0)
@@ -114,9 +116,8 @@ local function createESP(target)
     nameText.TextXAlignment = Enum.TextXAlignment.Center
     nameText.Parent = billboard
     
-    -- 创建优化的追踪线 (从玩家脚部指向目标)
     local tracer
-    if SETTINGS.SHOW_TRACER and (not isEnemy) then
+    if SETTINGS.SHOW_TRACER and (not isEnemy or SETTINGS.TRACER_FOR_ENEMIES) then
         local startAttachment = Instance.new("Attachment")
         startAttachment.Name = "TracerStart"
         startAttachment.Parent = workspace.CurrentCamera
@@ -129,19 +130,13 @@ local function createESP(target)
         tracer.Name = "ESP_Tracer"
         tracer.Attachment0 = startAttachment
         tracer.Attachment1 = endAttachment
-        tracer.Color = ColorSequence.new(SETTINGS.TRACER_COLOR)
+        tracer.Color = ColorSequence.new(isEnemy and SETTINGS.ENEMY_TRACER_COLOR or SETTINGS.TRACER_COLOR)
         tracer.Width0 = SETTINGS.TRACER_THICKNESS
-        tracer.Width1 = SETTINGS.TRACER_THICKNESS * 0.8  -- 末端稍细
+        tracer.Width1 = SETTINGS.TRACER_THICKNESS * 0.8
         tracer.LightEmission = 0.8
         tracer.Transparency = NumberSequence.new(0.5)
         tracer.FaceCamera = true
         tracer.Parent = target.HumanoidRootPart
-        
-        -- 设置初始位置
-        startAttachment.WorldPosition = LocalPlayer.Character and 
-                                      LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and 
-                                      (LocalPlayer.Character.HumanoidRootPart.Position - Vector3.new(0, 1.5, 0)) or 
-                                      Vector3.new(0, 0, 0)
     end
     
     espCache[target] = {
@@ -151,14 +146,41 @@ local function createESP(target)
         humanoid = target:FindFirstChildOfClass("Humanoid"),
         rootPart = target.HumanoidRootPart,
         startAttachment = tracer and tracer.Attachment0,
-        endAttachment = tracer and tracer.Attachment1
+        endAttachment = tracer and tracer.Attachment1,
+        isEnemy = isEnemy
     }
+end
+
+local function fullScan()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            createESP(player.Character)
+        end
+    end
+    
+    for _, descendant in ipairs(workspace:GetDescendants()) do
+        if descendant:IsA("Model") and descendant:FindFirstChild("HumanoidRootPart") then
+            for _, tag in ipairs(SETTINGS.ENEMY_TAGS) do
+                if descendant.Name:find(tag) or descendant:FindFirstChild(tag) then
+                    createESP(descendant)
+                    break
+                end
+            end
+        end
+    end
 end
 
 -- ===== 更新循环 =====
 local lastUpdate = 0
 RunService.Heartbeat:Connect(function(deltaTime)
     lastUpdate = lastUpdate + deltaTime
+    lastScanTime = lastScanTime + deltaTime
+    
+    if lastScanTime >= SETTINGS.SCAN_INTERVAL then
+        lastScanTime = 0
+        fullScan()
+    end
+    
     if lastUpdate < SETTINGS.UPDATE_RATE then return end
     lastUpdate = 0
     
@@ -167,7 +189,6 @@ RunService.Heartbeat:Connect(function(deltaTime)
     
     for target, data in pairs(espCache) do
         if not target.Parent then
-            -- 清理无效目标
             if data.highlight then data.highlight:Destroy() end
             if data.billboard then data.billboard:Destroy() end
             if data.tracer then data.tracer:Destroy() end
@@ -181,77 +202,57 @@ RunService.Heartbeat:Connect(function(deltaTime)
             
             if data.tracer then
                 data.tracer.Enabled = shouldShow
-                -- 更新追踪线起点位置(玩家脚部)
                 if data.startAttachment then
                     data.startAttachment.WorldPosition = localRoot.Position - Vector3.new(0, 1.5, 0)
                 end
             end
             
             if shouldShow then
-                -- 更新距离显示
                 if SETTINGS.SHOW_DISTANCE then
-                    data.billboard.ESP_Distance.Text = string.format("%.1fm", distance/3.571)  -- 转换为米
+                    data.billboard.ESP_Distance.Text = string.format("%.1fm", distance/3.571)
                 else
                     data.billboard.ESP_Distance.Text = ""
                 end
                 
-                -- 更新血量
                 if SETTINGS.SHOW_HEALTH and data.humanoid then
                     data.billboard.ESP_Health.Text = string.format("HP: %d/%d", 
                         math.floor(data.humanoid.Health), 
-                        math.floor(data.humanoid.MaxHealth))
-                else
-                    data.billboard.ESP_Health.Text = ""
-                end
+    math.floor(数据.humanoid.MaxHealth)
+    其他
+    data.billboard.ESP_Health.Text=""
+    结束
                 
-                -- 更新名字
-                data.billboard.ESP_Name.Text = target.Name
-            end
-        end
-    end
-end)
+    data.billboard.ESP_Name.Text=target.Name
+    结束
+    结束
+    结束
+结束)
 
 -- ===== 初始化和事件监听 =====
--- 扫描现有玩家
-for _, player in ipairs(Players:GetPlayers()) do
-    if player.Character then
-        createESP(player.Character)
-    end
-    player.CharacterAdded:Connect(function(character)
-        createESP(character)
-    end)
-end
+fullScan()
 
--- 扫描NPC/怪物
-for _, descendant in ipairs(workspace:GetDescendants()) do
-    if descendant:IsA("Model") and descendant:FindFirstChild("HumanoidRootPart") then
-        for _, tag in ipairs(SETTINGS.ENEMY_TAGS) do
-            if descendant.Name:find(tag) or descendant:FindFirstChild(tag) then
-                createESP(descendant)
-                break
-            end
-        end
-    end
-end
+players.PlayerAdded：连接(函数(播放器)
+运动员。CharacterAdded:Connect(函数(字符)
+createESP(字符)
+结束)
+结束)
 
--- 监听新NPC/怪物
-workspace.DescendantAdded:Connect(function(descendant)
-    if descendant:IsA("Model") and descendant:FindFirstChild("HumanoidRootPart") then
-        for _, tag in ipairs(SETTINGS.ENEMY_TAGS) do
-            if descendant.Name:find(tag) or descendant:FindFirstChild(tag) then
-                createESP(descendant)
-                break
-            end
-        end
-    end
-end)
+工作区。后代添加：连接(函数(后代)
+如果子代：Isa(“模型”)和子代：FindFirstChild(“HumanoidRootPart”)，则
+对于_，在ipairs中的标记(SETTINGS.ENEMY_TAGS)
+如果descendant.Name:find(标记)或descendant:FindFirstChild(标记)，则
+createESP(子代)
+打破
+结束
+结束
+结束
+结束)
 
--- 清理脚本
-LocalPlayer.CharacterRemoving:Connect(function()
-    for _, data in pairs(espCache) do
-        if data.highlight then data.highlight:Destroy() end
-        if data.billboard then data.billboard:Destroy() end
-        if data.tracer then data.tracer:Destroy() end
-    end
-    espCache = {}
-end)
+LocalPlayer.Character Removing：连接(功能()
+对于_，成对数据(espCache)
+如果data.highlight，则data.highlight:Destroy()结束
+如果data.billboard，则data.billboard:Destroy()结束
+如果data.tracer，则data.tracer:Destroy()结束
+结束
+espCache={}
+结束)
